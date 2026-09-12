@@ -1,0 +1,5 @@
+##### PluginList from the PATCHED daemon
+  org.test.compat-new    has_source=True  compatible=True
+  org.test.compat-old    has_source=False compatible=False
+                         reason: plugin entry_version 2 is unsupported; this daemon supports [3, 4]
+  supported_entry_versions=[3, 4] spawn_version=10
