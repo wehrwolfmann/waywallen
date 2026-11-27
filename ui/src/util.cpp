@@ -221,9 +221,9 @@ QString Util::bbcodeToHtml(const QString& src) const {
         stage.replace(reItem, QStringLiteral("<li>"));
     }
 
-    // Links: [url=X]Y[/url] then [url]X[/url]. img: [img]X[/img]. Qt won't
-    // fetch http(s) imgs without a network image provider; a missing-image
-    // glyph still hints at presence.
+    // Links: [url=X]Y[/url] then [url]X[/url]. img: [img]X[/img] becomes a
+    // link too. StyledText can't scale an image to the panel width, and the
+    // fixed line height of MD.Text lets a tall image cover nearby lines.
     {
         static const QRegularExpression reUrlEq(
             QStringLiteral("\\[url=([\"']?)([^\\]\"']+)\\1\\](.*?)\\[/url\\]"),
@@ -239,7 +239,17 @@ QString Util::bbcodeToHtml(const QString& src) const {
         static const QRegularExpression reImg(QStringLiteral("\\[img\\](.*?)\\[/img\\]"),
                                               QRegularExpression::CaseInsensitiveOption |
                                                   QRegularExpression::DotMatchesEverythingOption);
-        stage.replace(reImg, QStringLiteral("<img src=\"\\1\">"));
+        stage.replace(reImg, QStringLiteral("<a href=\"\\1\">%1</a>").arg(tr("Image")));
+    }
+
+    // Drop tags left without a pair, e.g. `[b]text[b]` or a stray `[/i]`,
+    // so they don't show up as literal text.
+    {
+        static const QRegularExpression reStray(
+            QStringLiteral("\\[(?:/?(?:b|i|u|s|strike|code|spoiler|h[1-3]|quote|url|img)|"
+                           "(?:quote|url)=[^\\]]*)\\]"),
+            QRegularExpression::CaseInsensitiveOption);
+        stage.remove(reStray);
     }
 
     // Linkify text nodes only. Generated tag attributes and existing anchor
