@@ -785,6 +785,10 @@ Item {
 
                     property bool expanded: false
                     readonly property int collapsedLines: 3
+                    // Text and image blocks; images are laid out as items so
+                    // they keep their aspect ratio and never overlap text.
+                    readonly property var blocks: W.Util.bbcodeToBlocks(root.wp?.description ?? "")
+                    readonly property bool hasImages: blocks.some(b => b.type === "image")
 
                     MD.Divider {
                         Layout.fillWidth: true
@@ -801,22 +805,93 @@ Item {
                         }
                         MD.IconButton {
                             icon.name: m_description.expanded ? MD.Token.icon.expand_less : MD.Token.icon.expand_more
-                            visible: m_descText.lineCount > m_description.collapsedLines || m_description.expanded
+                            visible: m_descText.lineCount > m_description.collapsedLines || m_description.hasImages || m_description.expanded
                             onClicked: m_description.expanded = !m_description.expanded
                         }
                     }
 
+                    // Collapsed: the first lines of text, images left out.
                     MD.Text {
                         id: m_descText
                         Layout.fillWidth: true
-                        text: W.Util.bbcodeToHtml(root.wp?.description ?? "")
+                        visible: !m_description.expanded
+                        text: m_description.blocks.filter(b => b.type === "text").map(b => b.text).join("<br>")
                         textFormat: Text.StyledText
                         typescale: MD.Token.typescale.body_medium
                         color: MD.Token.color.on_surface
                         wrapMode: Text.WordWrap
-                        maximumLineCount: m_description.expanded ? Number.MAX_SAFE_INTEGER : m_description.collapsedLines
-                        elide: m_description.expanded ? Text.ElideNone : Text.ElideRight
+                        maximumLineCount: m_description.collapsedLines
+                        elide: Text.ElideRight
                         onLinkActivated: link => W.App.openExternalLink(link)
+                    }
+
+                    Repeater {
+                        model: m_description.expanded ? m_description.blocks : []
+                        delegate: Loader {
+                            id: m_block
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.topMargin: modelData.type !== "text" ? 4 : 0
+                            Layout.bottomMargin: modelData.type !== "text" ? 4 : 0
+                            sourceComponent: modelData.type === "image" ? m_blockImage : modelData.type === "rule" ? m_blockRule : m_blockText
+
+                            Component {
+                                id: m_blockText
+                                MD.Text {
+                                    text: m_block.modelData.text
+                                    textFormat: Text.StyledText
+                                    typescale: MD.Token.typescale.body_medium
+                                    color: MD.Token.color.on_surface
+                                    wrapMode: Text.WordWrap
+                                    onLinkActivated: link => W.App.openExternalLink(link)
+                                }
+                            }
+
+                            Component {
+                                id: m_blockRule
+                                MD.Divider {}
+                            }
+
+                            // Natural size, scaled down to the panel width
+                            // like Steam's max-width; the URL is kept as a
+                            // link when the image cannot be loaded.
+                            Component {
+                                id: m_blockImage
+                                Item {
+                                    readonly property bool failed: m_img.state === W.ThumbnailRequest.Failed
+                                    implicitHeight: failed ? m_imgLink.implicitHeight : m_img.height
+
+                                    W.ThumbnailImage {
+                                        id: m_img
+                                        visible: !parent.failed
+                                        width: Math.min(parent.width, intrinsicSize.width > 0 ? intrinsicSize.width : parent.width)
+                                        height: width / aspectRatio
+                                        source: m_block.modelData.url
+                                        fallbackAspectRatio: 16 / 9
+                                        fillMode: Image.PreserveAspectFit
+                                        maxSize: Qt.size(1600, 1600)
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            enabled: m_block.modelData.link !== ""
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: W.App.openExternalLink(m_block.modelData.link)
+                                        }
+                                    }
+                                    MD.Text {
+                                        id: m_imgLink
+                                        width: parent.width
+                                        visible: parent.failed
+                                        text: m_block.modelData.text
+                                        textFormat: Text.StyledText
+                                        typescale: MD.Token.typescale.body_medium
+                                        color: MD.Token.color.on_surface
+                                        wrapMode: Text.WrapAnywhere
+                                        onLinkActivated: link => W.App.openExternalLink(link)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

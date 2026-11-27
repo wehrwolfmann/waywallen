@@ -14,7 +14,8 @@ namespace waywallen
 // QML singleton exposing miscellaneous UI helpers that are too heavy or
 // regex-bound to write inline as QML JavaScript. Surfaces grow here as
 // the QML side needs them.
-//   * bbcodeToHtml(src) — provider-supplied BBCode → Qt.StyledText HTML subset.
+//   * bbcodeToBlocks(src) — provider-supplied BBCode → text (StyledText HTML)
+//     and image blocks.
 export class Util : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -51,7 +52,10 @@ public:
     bool    supportsDisplayRename() const;
     bool    isFlatpak() const;
 
-    Q_INVOKABLE QString bbcodeToHtml(const QString& src) const;
+    // Each block is {type: "text", text}, {type: "image", url, link, text}
+    // or {type: "rule"}.
+    // `text` is StyledText HTML (for an image, a fallback link).
+    Q_INVOKABLE QVariantList bbcodeToBlocks(const QString& src) const;
 
     // WE wire-side color is `"r g b"` or `"r g b a"`, space-separated
     // 0-1 floats. Falls back to opaque black on malformed input.
